@@ -83,7 +83,8 @@ COPTS = [
     "-Wextra",
     "-Wno-unused-parameter",
     "-Werror=return-type",
-    "-O2",
+#    "-O2",
+    "-O0",
     "-g",
 ]
 
@@ -103,7 +104,7 @@ cc_binary(
         "TYPESENSE_VERSION=\\\"$(TYPESENSE_VERSION)\\\""
     ],
     linkopts = select({
-        "@platforms//os:linux": ["-static-libstdc++", "-static-libgcc", "-fuse-ld=lld"],
+        "@platforms//os:linux": ["-static-libstdc++", "-static-libgcc", "-fuse-ld=lld","-lzstd"],
         "@platforms//os:macos": ["-framework Foundation", "-framework Accelerate", "-framework Metal", "-framework MetalKit"],
         "//conditions:default": [],
     }),
