@@ -3879,7 +3879,8 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
                     {"name": "main", "type": "object"},
                     {"name": "main.name", "type": "string", "infix": true},
                     {"name": "main.ingredients", "type": "object[]"},
-                    {"name": "main.ingredients.*", "type": "auto", "optional": true}
+                    {"name": "main.ingredients.*", "type": "auto", "optional": true},
+                    {"name": "main.gluten_free", "type": "bool"}
                 ],
                 "enable_nested_fields": true
             })"_json;
@@ -3888,21 +3889,30 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
             R"({"main": {
                             "name": "Pasta",
                             "ingredients": [{"name": "cheese", "concentration": 40}, {"name" : "spinach", "concentration": 10},
-                                            {"name": "jalepeno", "concentration": 20}]
+                                            {"name": "jalepeno", "concentration": 20}],
+                            "gluten_free": true
                 }
             })"_json,
             R"({"main": {
                             "name": "Pizza",
                             "ingredients": [{"name": "cheese", "concentration": 30}, {"name": "pizza sauce", "concentration": 30},
-                                            {"name": "olives", "concentration": 30}]
+                                            {"name": "olives", "concentration": 30}],
+                            "gluten_free": false
                 }
             })"_json,
             R"({"main": {
                             "name": "Lasagna",
                             "ingredients": [{"name": "cheese", "concentration": 60}, {"name": "jalepeno", "concentration": 20},
-                                            {"name": "olives", "concentration": 20}]
+                                            {"name": "olives", "concentration": 20}],
+                            "gluten_free": true
                 }
-            })"_json
+            })"_json,
+            R"({"main": {
+                            "name": "Popcorn",
+                            "ingredients": [{"name": "cheese", "concentration": 30}],
+                            "gluten_free": true
+                }
+            })"_json,
     };
 
     auto collection_create_op = collectionManager.create_collection(schema_json);
@@ -3918,8 +3928,8 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
     std::map<std::string, std::string> req_params = {
             {"collection",     "menu_nested"},
             {"q",              "*"},
-            {"filter_by",      "main.name: p* && main.ingredients.{name : cheese && concentration :<50}"},
-            {"include_fields", "main.name, main.ingredients"}
+            {"filter_by",      "main.name: p* && main.ingredients.{name : cheese && concentration :<50} && main.gluten_free:true"},
+            {"include_fields", "main.name, main.ingredients, main.gluten_free"}
     };
     nlohmann::json embedded_params;
     std::string json_res;
@@ -3931,7 +3941,7 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
     auto result = nlohmann::json::parse(json_res);
     ASSERT_EQ(2, result["found"].get<size_t>());
     ASSERT_EQ(2, result["hits"].size());
-    ASSERT_EQ("Pizza", result["hits"][0]["document"]["main"]["name"]);
+    ASSERT_EQ("Popcorn", result["hits"][0]["document"]["main"]["name"]);
     ASSERT_EQ("Pasta", result["hits"][1]["document"]["main"]["name"]);
 
     //deep nested field
@@ -3943,7 +3953,8 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
                     {"name": "root.main", "type": "object"},
                     {"name": "root.main.name", "type": "string", "infix": true},
                     {"name": "root.main.ingredients", "type": "object[]"},
-                    {"name": "root.main.ingredients.*", "type": "auto", "optional": true}
+                    {"name": "root.main.ingredients.*", "type": "auto", "optional": true},
+                    {"name": "root.main.gluten_free", "type": "bool"}
                 ],
                 "enable_nested_fields": true
             })"_json;
@@ -3953,7 +3964,8 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
                             "main": {
                                         "name": "Pasta",
                                         "ingredients": [{"name": "cheese", "concentration": 40}, {"name" : "spinach", "concentration": 10},
-                                                        {"name": "jalepeno", "concentration": 20}]
+                                                        {"name": "jalepeno", "concentration": 20}],
+                                        "gluten_free": true
                             }
                 }
             })"_json,
@@ -3961,7 +3973,8 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
                             "main": {
                                         "name": "Pizza",
                                         "ingredients": [{"name": "cheese", "concentration": 30}, {"name": "pizza sauce", "concentration": 30},
-                                                        {"name": "olives", "concentration": 30}]
+                                                        {"name": "olives", "concentration": 30}],
+                                        "gluten_free": false
                             }
                 }
             })"_json,
@@ -3969,7 +3982,16 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
                             "main": {
                                         "name": "Lasagna",
                                         "ingredients": [{"name": "cheese", "concentration": 60}, {"name": "jalepeno", "concentration": 20},
-                                                        {"name": "olives", "concentration": 20}]
+                                                        {"name": "olives", "concentration": 20}],
+                                        "gluten_free": true
+                            }
+                }
+            })"_json,
+            R"({"root": {
+                            "main": {
+                                        "name": "Popcorn",
+                                        "ingredients": [{"name": "cheese", "concentration": 30}],
+                                        "gluten_free": true
                             }
                 }
             })"_json
@@ -3988,8 +4010,8 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
     req_params = {
             {"collection",     "menu_nested_deep"},
             {"q",              "*"},
-            {"filter_by",      "root.main.name: p* && root.main.ingredients.{name : cheese && concentration :<50}"},
-            {"include_fields", "root.main.name, root.main.ingredients"}
+            {"filter_by",      "root.main.name: p* && root.main.ingredients.{name : cheese && concentration :<50} && root.main.gluten_free:true"},
+            {"include_fields", "root.main.name, root.main.ingredients, root.main.gluten_free"}
     };
     json_res.clear();
     now_ts = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -4000,6 +4022,6 @@ TEST_F(CollectionFilteringTest, DeepNestedObjectFieldsFiltering) {
     result = nlohmann::json::parse(json_res);
     ASSERT_EQ(2, result["found"].get<size_t>());
     ASSERT_EQ(2, result["hits"].size());
-    ASSERT_EQ("Pizza", result["hits"][0]["document"]["root"]["main"]["name"]);
+    ASSERT_EQ("Popcorn", result["hits"][0]["document"]["root"]["main"]["name"]);
     ASSERT_EQ("Pasta", result["hits"][1]["document"]["root"]["main"]["name"]);
 }
